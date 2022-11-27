@@ -1,10 +1,23 @@
 /***************************************************************************
-Example Code of Balloon Satellite
- ***************************************************************************/
 
+  _   _           ____                                
+ | \ | |  _   _  / ___|   _ __     __ _    ___    ___ 
+ |  \| | | | | | \___ \  | '_ \   / _` |  / __|  / _ \
+ | |\  | | |_| |  ___) | | |_) | | (_| | | (__  |  __/
+ |_| \_|  \__,_| |____/  | .__/   \__,_|  \___|  \___|
+                         |_|                          
+  (C)2022 NuSpace Pte Ltd
+Description:
+    Balloon Satellite Example Code without SD card integration. 
+Author: Hubert Khoo Hui Bo
+Date Written: 24th November 2022
+
+***************************************************************************/
+
+/* include all important libraries */
 #include <Wire.h>
 #include <SPI.h>
-#include <Adafruit_BMP280.h>
+
 #include <SoftwareSerial.h>
 
 union temperature {
@@ -13,6 +26,9 @@ union temperature {
 } ;
 
 temperature uni;
+
+// All required includes, define for BMP 280, taken from bmp280test example code
+#include <Adafruit_BMP280.h>
 
 #define BMP_SCK  (52)
 #define BMP_MISO (50)
@@ -23,12 +39,13 @@ temperature uni;
 Adafruit_BMP280 bmp(BMP_CS); // hardware SPI
 //Adafruit_BMP280 bmp(BMP_CS, BMP_MOSI, BMP_MISO,  BMP_SCK);
 
+// all required includes for MPU-6500 reading. Taken from example code MPU_9600_SPI_all data
+
 #include <MPU6500_WE.h>
-const int csPin = 9;  // Chip Select Pin
+const int csPin = 9;  // Chip Select Pin < -- change to whatever you want to use! Don't overlap hardware SPI pins.
 bool useSPI = true;    // SPI use flag
 
-MPU6500_WE myMPU6500 = MPU6500_WE(&SPI, csPin, useSPI);
-
+MPU6500_WE myMPU6500 = MPU6500_WE(&SPI, csPin, useSPI); // Uses hardware SPI Pins.
 
 /*
 Not all pins on the Mega and Mega 2560 boards support change interrupts,
@@ -41,12 +58,18 @@ SoftwareSerial HC12(10, 11); // HC-12 TX Pin, HC-12 RX Pin
 
 void setup() {
   //Wire.begin();
-  Serial.begin(9600);
-  HC12.begin(9600);
+  Serial.begin(9600); // start up the local serial monitor.
+
+  HC12.begin(9600); // start up the serial pins connected to the HC-12
+
   while ( !Serial ) delay(100);   // wait for native usb
+
   unsigned status;
+
   //status = bmp.begin(BMP280_ADDRESS_ALT, BMP280_CHIPID);
-  status = bmp.begin(0x68);
+
+  status = bmp.begin(0x68); // The GY-91 board used had such an address.
+
   if (!status) {
     Serial.println(F("Could not find a valid BMP280 sensor, check wiring or "
                       "try a different address!"));
@@ -57,11 +80,16 @@ void setup() {
     Serial.print("        ID of 0x61 represents a BME 680.\n");
     while (1) delay(10);
   }
+
+
   while(!myMPU6500.init()){
     Serial.println("MPU6500 does not respond");
     delay(1000);
   }
+
+
   Serial.println("MPU6500 is connected");
+
 
   Serial.println("Position you MPU6500 flat and don't move it - calibrating...");
   delay(1000);
@@ -79,6 +107,7 @@ void setup() {
   myMPU6500.enableAccDLPF(true);
   myMPU6500.setAccDLPF(MPU6500_DLPF_6);
 
+
   /* Default settings from datasheet. */
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
                   Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
@@ -88,6 +117,7 @@ void setup() {
 }
 
 void loop() {
+
   Serial.print(F("Temperature = "));
   Serial.print(bmp.readTemperature());
   Serial.println(" *C");
@@ -106,6 +136,8 @@ void loop() {
   xyzFloat gyr = myMPU6500.getGyrValues();
   float temp = myMPU6500.getTemperature();
   float resultantG = myMPU6500.getResultantG(gValue);
+
+  // assign float value to union.
   uni.temp = temp;
 
   Serial.println("Acceleration in g (x,y,z):");
@@ -129,6 +161,7 @@ void loop() {
 
   Serial.println("********************************************");
   
+  // output the temperature data to the HC12.
   HC12.write( '>' );
   HC12.write(uni.bytes, sizeof( float ) );
   HC12.write( '<' );
